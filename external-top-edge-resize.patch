@@ -1,0 +1,35 @@
+diff --git a/src/client.h b/src/client.h
+--- a/src/client.h
++++ b/src/client.h
+@@ -281,6 +281,7 @@ typedef enum
+     EXTERNAL_RESIZE_TOP_LEFT_VERTICAL,
+     EXTERNAL_RESIZE_TOP_RIGHT_HORIZONTAL,
+     EXTERNAL_RESIZE_TOP_RIGHT_VERTICAL,
++    EXTERNAL_RESIZE_SIDE_TOP,
+     EXTERNAL_RESIZE_SIDE_LEFT,
+     EXTERNAL_RESIZE_SIDE_RIGHT,
+     EXTERNAL_RESIZE_SIDE_BOTTOM,
+diff --git a/src/client.c b/src/client.c
+--- a/src/client.c
++++ b/src/client.c
+@@ -629,6 +629,8 @@ clientExternalResizePartForIndex (int i)
+         case EXTERNAL_RESIZE_TOP_RIGHT_HORIZONTAL:
+         case EXTERNAL_RESIZE_TOP_RIGHT_VERTICAL:
+             return CORNER_TOP_RIGHT;
++        case EXTERNAL_RESIZE_SIDE_TOP:
++            return CORNER_COUNT + SIDE_TOP;
+         case EXTERNAL_RESIZE_SIDE_LEFT:
+             return CORNER_COUNT + SIDE_LEFT;
+         case EXTERNAL_RESIZE_SIDE_RIGHT:
+@@ -700,6 +702,11 @@ clientUpdateExternalResizeHandles (Client *c)
+                     x + width, y,
+                     EXTERNAL_RESIZE_MARGIN, vertical_reach, FALSE);
+ 
++    xfwmWindowShow (&c->external_resize[EXTERNAL_RESIZE_SIDE_TOP],
++                    x + horizontal_reach, y - EXTERNAL_RESIZE_MARGIN,
++                    width - (2 * horizontal_reach),
++                    EXTERNAL_RESIZE_MARGIN, FALSE);
++
+     xfwmWindowShow (&c->external_resize[EXTERNAL_RESIZE_SIDE_LEFT],
+                     x - EXTERNAL_RESIZE_MARGIN, y + vertical_reach,
+                     EXTERNAL_RESIZE_MARGIN, height - (2 * vertical_reach), FALSE);
