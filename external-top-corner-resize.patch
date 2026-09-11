@@ -1,0 +1,324 @@
+diff --git a/src/display.h b/src/display.h
+--- a/src/display.h
++++ b/src/display.h
+@@ -81,7 +81,8 @@ enum
+     SEARCH_WINDOW         = (1 << 0),
+     SEARCH_FRAME          = (1 << 1),
+     SEARCH_BUTTON         = (1 << 2),
+-    SEARCH_WIN_USER_TIME  = (1 << 3)
++    SEARCH_WIN_USER_TIME  = (1 << 3),
++    SEARCH_RESIZE_HANDLE  = (1 << 4)
+ };
+ 
+ enum
+diff --git a/src/client.h b/src/client.h
+--- a/src/client.h
++++ b/src/client.h
+@@ -274,6 +274,16 @@ typedef enum
+ }
+ tilePositionType;
+ 
++typedef enum
++{
++    EXTERNAL_RESIZE_TOP_LEFT_HORIZONTAL = 0,
++    EXTERNAL_RESIZE_TOP_LEFT_VERTICAL,
++    EXTERNAL_RESIZE_TOP_RIGHT_HORIZONTAL,
++    EXTERNAL_RESIZE_TOP_RIGHT_VERTICAL,
++    EXTERNAL_RESIZE_HANDLE_COUNT
++}
++externalResizeHandleType;
++
+ struct _Client
+ {
+     /* Reference to our screen structure */
+@@ -290,6 +300,7 @@ struct _Client
+     xfwmWindow title;
+     xfwmWindow sides[SIDE_COUNT];
+     xfwmWindow corners[CORNER_COUNT];
++    xfwmWindow external_resize[EXTERNAL_RESIZE_HANDLE_COUNT];
+     xfwmWindow buttons[BUTTON_COUNT];
+     Window client_leader;
+     Window group_leader;
+@@ -391,6 +402,8 @@ void                     clientUngrabButtons                    (Client *);
+ Client                  *clientGetFromWindow                    (Client *,
+                                                                  Window,
+                                                                  unsigned short);
++int                      clientGetExternalResizeHandle          (Client *,
++                                                                 Window);
+ void                     clientShow                             (Client *,
+                                                                  gboolean);
+ void                     clientWithdraw                         (Client *,
+diff --git a/src/client.c b/src/client.c
+--- a/src/client.c
++++ b/src/client.c
+@@ -87,6 +87,9 @@
+ #define OPACITY_SET_STEP        (guint) 0x16000000
+ #define OPACITY_SET_MIN         (guint) 0x40000000
+ 
++#define EXTERNAL_RESIZE_MARGIN       16
++#define EXTERNAL_RESIZE_CORNER_REACH 64
++
+ typedef struct _ButtonPressData ButtonPressData;
+ struct _ButtonPressData
+ {
+@@ -109,6 +112,8 @@ clientUpdateIconPix (Client *c);
+ static gboolean
+ clientNewMaxSize (Client *c, XWindowChanges *wc, GdkRectangle);
++static void
++clientUpdateExternalResizeHandles (Client *c);
+ 
+ Display *
+ clientGetXDisplay (Client *c)
+@@ -613,6 +618,70 @@ clientAdjustCoordGravity (Client *c, int gravity, XWindowChanges *wc, unsigned l
+     }
+ }
+ 
++static void
++clientHideExternalResizeHandles (Client *c)
++{
++    int i;
++
++    for (i = 0; i < EXTERNAL_RESIZE_HANDLE_COUNT; i++)
++    {
++        xfwmWindowHide (&c->external_resize[i]);
++    }
++}
++
++static gboolean
++clientCanUseExternalResizeHandles (Client *c)
++{
++    return FLAG_TEST_ALL (c->xfwm_flags,
++                          XFWM_FLAG_VISIBLE |
++                          XFWM_FLAG_HAS_BORDER |
++                          XFWM_FLAG_HAS_RESIZE |
++                          XFWM_FLAG_IS_RESIZABLE) &&
++           !FLAG_TEST (c->flags,
++                       CLIENT_FLAG_FULLSCREEN |
++                       CLIENT_FLAG_MAXIMIZED |
++                       CLIENT_FLAG_SHADED |
++                       CLIENT_FLAG_HAS_FRAME_EXTENTS) &&
++           (c->tile_mode == TILE_NONE);
++}
++
++static void
++clientUpdateExternalResizeHandles (Client *c)
++{
++    int x, y, width, height;
++    int horizontal_reach, vertical_reach;
++
++    if (!clientCanUseExternalResizeHandles (c))
++    {
++        clientHideExternalResizeHandles (c);
++        return;
++    }
++
++    x = frameX (c);
++    y = frameY (c);
++    width = frameWidth (c);
++    height = frameHeight (c);
++
++    horizontal_reach = MIN (EXTERNAL_RESIZE_CORNER_REACH,
++                            MAX (1, width / 2));
++    vertical_reach = MIN (EXTERNAL_RESIZE_CORNER_REACH,
++                          MAX (1, height));
++
++    /* Two rectangles per corner form an outside-only L shape. */
++    xfwmWindowShow (&c->external_resize[EXTERNAL_RESIZE_TOP_LEFT_HORIZONTAL],
++                    x - EXTERNAL_RESIZE_MARGIN, y - EXTERNAL_RESIZE_MARGIN,
++                    EXTERNAL_RESIZE_MARGIN + horizontal_reach,
++                    EXTERNAL_RESIZE_MARGIN, FALSE);
++    xfwmWindowShow (&c->external_resize[EXTERNAL_RESIZE_TOP_LEFT_VERTICAL],
++                    x - EXTERNAL_RESIZE_MARGIN, y,
++                    EXTERNAL_RESIZE_MARGIN, vertical_reach, FALSE);
++    xfwmWindowShow (&c->external_resize[EXTERNAL_RESIZE_TOP_RIGHT_HORIZONTAL],
++                    x + width - horizontal_reach, y - EXTERNAL_RESIZE_MARGIN,
++                    horizontal_reach + EXTERNAL_RESIZE_MARGIN,
++                    EXTERNAL_RESIZE_MARGIN, FALSE);
++    xfwmWindowShow (&c->external_resize[EXTERNAL_RESIZE_TOP_RIGHT_VERTICAL],
++                    x + width, y,
++                    EXTERNAL_RESIZE_MARGIN, vertical_reach, FALSE);
++}
++
+ static void
+ clientConfigureWindows (Client *c, unsigned long mask, unsigned short flags)
+ {
+@@ -663,6 +732,8 @@ clientConfigureWindows (Client *c, unsigned long mask, unsigned short flags)
+         XConfigureWindow (display_info->dpy, c->window, change_mask_client, &change_values);
+     }
+     myDisplayErrorTrapPopIgnored (display_info);
++
++    clientUpdateExternalResizeHandles (c);
+ }
+ 
+ void
+@@ -1972,6 +2043,19 @@ clientFrame (DisplayInfo *display_info, Window w, gboolean recapture)
+         XShapeSelectInput (display_info->dpy, c->window, ShapeNotifyMask);
+     }
+ 
++    for (i = 0; i < EXTERNAL_RESIZE_HANDLE_COUNT; i++)
++    {
++        int resize_part;
++
++        resize_part = (i == EXTERNAL_RESIZE_TOP_LEFT_HORIZONTAL ||
++                       i == EXTERNAL_RESIZE_TOP_LEFT_VERTICAL)
++                      ? CORNER_TOP_LEFT : CORNER_TOP_RIGHT;
++        xfwmWindowCreateInputOnly (screen_info, screen_info->xroot,
++                                   &c->external_resize[i], POINTER_EVENT_MASK,
++                                   myDisplayGetCursorResize (display_info,
++                                                             resize_part));
++    }
++
+     clientAddToList (c);
+     clientGrabButtons(c);
+ 
+@@ -2140,6 +2224,10 @@ clientUnframe (Client *c, gboolean remap)
+     {
+         xfwmWindowDelete (&c->corners[i]);
+     }
++    for (i = 0; i < EXTERNAL_RESIZE_HANDLE_COUNT; i++)
++    {
++        xfwmWindowDelete (&c->external_resize[i]);
++    }
+     for (i = 0; i < STATE_TOGGLED; i++)
+     {
+         xfwmPixmapFree (&c->appmenu[i]);
+@@ -2241,6 +2329,30 @@ clientUnframeAll (ScreenInfo *screen_info)
+     }
+ }
+ 
++int
++clientGetExternalResizeHandle (Client *c, Window w)
++{
++    if ((MYWINDOW_XWINDOW (c->external_resize[EXTERNAL_RESIZE_TOP_LEFT_HORIZONTAL]) == w) ||
++        (MYWINDOW_XWINDOW (c->external_resize[EXTERNAL_RESIZE_TOP_LEFT_VERTICAL]) == w))
++    {
++        return CORNER_TOP_LEFT;
++    }
++
++    if ((MYWINDOW_XWINDOW (c->external_resize[EXTERNAL_RESIZE_TOP_RIGHT_HORIZONTAL]) == w) ||
++        (MYWINDOW_XWINDOW (c->external_resize[EXTERNAL_RESIZE_TOP_RIGHT_VERTICAL]) == w))
++    {
++        return CORNER_TOP_RIGHT;
++    }
++
++    return NO_HANDLE;
++}
++
+ Client *
+ clientGetFromWindow (Client *c, Window w, unsigned short mode)
+ {
+@@ -2283,6 +2395,16 @@ clientGetFromWindow (Client *c, Window w, unsigned short mode)
+         }
+     }
+ 
++    if (mode & SEARCH_RESIZE_HANDLE)
++    {
++        if (clientGetExternalResizeHandle (c, w) != NO_HANDLE)
++        {
++            TRACE ("found \"%s\" (mode RESIZE_HANDLE)", c->name);
++            return (c);
++        }
++    }
++
+     TRACE ("no client found");
+ 
+     return NULL;
+@@ -2373,6 +2495,7 @@ clientShowSingle (Client *c, gboolean deiconify)
+         }
+         myDisplayErrorTrapPopIgnored (display_info);
++        clientUpdateExternalResizeHandles (c);
+         /* Adjust to urgency state as the window is visible */
+         clientUpdateUrgency (c);
+     }
+@@ -2442,6 +2565,7 @@ clientWithdrawSingle (Client *c, GList *exclude_list, gboolean iconify)
+         /* Adjust to urgency state as the window is not visible */
+         clientUpdateUrgency (c);
+     }
++    clientUpdateExternalResizeHandles (c);
+ 
+     myDisplayErrorTrapPush (display_info);
+     XUnmapWindow (display_info->dpy, c->frame);
+@@ -3811,6 +3935,14 @@ clientUpdateCursor (Client *c)
+             myDisplayGetCursorResize(display_info, i));
+     }
++
++    for (i = 0; i < EXTERNAL_RESIZE_HANDLE_COUNT; i++)
++    {
++        int resize_part = (i == EXTERNAL_RESIZE_TOP_LEFT_HORIZONTAL ||
++                           i == EXTERNAL_RESIZE_TOP_LEFT_VERTICAL)
++                          ? CORNER_TOP_LEFT : CORNER_TOP_RIGHT;
++        xfwmWindowSetCursor (&c->external_resize[i],
++                             myDisplayGetCursorResize (display_info, resize_part));
++    }
+ }
+ 
+ void
+diff --git a/src/events.c b/src/events.c
+--- a/src/events.c
++++ b/src/events.c
+@@ -888,14 +888,24 @@ handleButtonPress (DisplayInfo *display_info, XfwmEventButton *event)
+     ScreenInfo *screen_info;
+     Client *c;
+     Window win;
+-    guint state, part;
++    guint state;
++    int part;
+     gboolean replay;
+ 
+     TRACE ("entering");
+ 
+     replay = FALSE;
+-    c = myDisplayGetClientFromWindow (display_info, event->meta.window,
+-                                      SEARCH_FRAME | SEARCH_WINDOW);
+-    if (c)
++    c = myDisplayGetClientFromWindow (display_info, event->meta.window,
++                                      SEARCH_RESIZE_HANDLE);
++    if (c)
++    {
++        part = clientGetExternalResizeHandle (c, event->meta.window);
++        if (part != NO_HANDLE)
++        {
++            edgeButton (c, part, event);
++        }
++    }
++    else if ((c = myDisplayGetClientFromWindow (display_info, event->meta.window,
++                                                 SEARCH_FRAME | SEARCH_WINDOW)))
+     {
+         state = event->state & MODIFIER_MASK;
+         win = event->subwindow;
+diff --git a/src/stacking.c b/src/stacking.c
+--- a/src/stacking.c
++++ b/src/stacking.c
+@@ -43,13 +43,14 @@ clientApplyStackList (ScreenInfo *screen_info)
+     Window *xwinstack;
+     guint nwindows;
+     gint i;
++    gint j;
+ 
+     DBG ("applying stack list");
+     nwindows = g_list_length (screen_info->windows_stack);
+ 
+     i = 0;
+-    xwinstack = g_new0 (Window, nwindows + 4);
++    xwinstack = g_new0 (Window, 4 + nwindows * (1 + EXTERNAL_RESIZE_HANDLE_COUNT));
+     xwinstack[i++] = MYWINDOW_XWINDOW (screen_info->sidewalk[0]);
+     xwinstack[i++] = MYWINDOW_XWINDOW (screen_info->sidewalk[1]);
+     xwinstack[i++] = MYWINDOW_XWINDOW (screen_info->sidewalk[2]);
+@@ -63,12 +64,16 @@ clientApplyStackList (ScreenInfo *screen_info)
+         {
+             c = (Client *) list->data;
+             xwinstack[i++] = c->frame;
++            for (j = 0; j < EXTERNAL_RESIZE_HANDLE_COUNT; j++)
++            {
++                xwinstack[i++] = MYWINDOW_XWINDOW (c->external_resize[j]);
++            }
+             DBG ("  [%i] \"%s\" (0x%lx)", i, c->name, c->window);
+         }
+     }
+ 
+     myDisplayErrorTrapPush (screen_info->display_info);
+-    XRestackWindows (myScreenGetXDisplay (screen_info), xwinstack, (int) nwindows + 4);
++    XRestackWindows (myScreenGetXDisplay (screen_info), xwinstack, i);
+     myDisplayErrorTrapPopIgnored (screen_info->display_info);
+ 
+     g_free (xwinstack);
