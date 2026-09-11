@@ -61,7 +61,7 @@ diff --git a/src/client.c b/src/client.c
  typedef struct _ButtonPressData ButtonPressData;
  struct _ButtonPressData
  {
-@@ -109,6 +112,8 @@ clientUpdateIconPix (Client *c);
+@@ -109,5 +112,7 @@ clientUpdateIconPix (Client *c);
  static gboolean
  clientNewMaxSize (Client *c, XWindowChanges *wc, GdkRectangle);
 +static void
@@ -69,7 +69,7 @@ diff --git a/src/client.c b/src/client.c
  
  Display *
  clientGetXDisplay (Client *c)
-@@ -613,6 +618,70 @@ clientAdjustCoordGravity (Client *c, int gravity, XWindowChanges *wc, unsigned l
+@@ -613,6 +618,72 @@ clientAdjustCoordGravity (Client *c, int gravity, XWindowChanges *wc, unsigned l
      }
  }
  
@@ -182,7 +182,7 @@ diff --git a/src/client.c b/src/client.c
      for (i = 0; i < STATE_TOGGLED; i++)
      {
          xfwmPixmapFree (&c->appmenu[i]);
-@@ -2241,6 +2329,30 @@ clientUnframeAll (ScreenInfo *screen_info)
+@@ -2241,6 +2329,24 @@ clientUnframeAll (ScreenInfo *screen_info)
      }
  }
  
@@ -207,7 +207,7 @@ diff --git a/src/client.c b/src/client.c
  Client *
  clientGetFromWindow (Client *c, Window w, unsigned short mode)
  {
-@@ -2283,6 +2395,16 @@ clientGetFromWindow (Client *c, Window w, unsigned short mode)
+@@ -2283,6 +2395,15 @@ clientGetFromWindow (Client *c, Window w, unsigned short mode)
          }
      }
  
@@ -223,7 +223,7 @@ diff --git a/src/client.c b/src/client.c
      TRACE ("no client found");
  
      return NULL;
-@@ -2373,6 +2495,7 @@ clientShowSingle (Client *c, gboolean deiconify)
+@@ -2373,5 +2495,6 @@ clientShowSingle (Client *c, gboolean deiconify)
          }
          myDisplayErrorTrapPopIgnored (display_info);
 +        clientUpdateExternalResizeHandles (c);
@@ -238,7 +238,7 @@ diff --git a/src/client.c b/src/client.c
  
      myDisplayErrorTrapPush (display_info);
      XUnmapWindow (display_info->dpy, c->frame);
-@@ -3811,6 +3935,14 @@ clientUpdateCursor (Client *c)
+@@ -3811,5 +3935,14 @@ clientUpdateCursor (Client *c)
              myDisplayGetCursorResize(display_info, i));
      }
 +
@@ -256,7 +256,7 @@ diff --git a/src/client.c b/src/client.c
 diff --git a/src/events.c b/src/events.c
 --- a/src/events.c
 +++ b/src/events.c
-@@ -888,14 +888,24 @@ handleButtonPress (DisplayInfo *display_info, XfwmEventButton *event)
+@@ -888,15 +888,25 @@ handleButtonPress (DisplayInfo *display_info, XfwmEventButton *event)
      ScreenInfo *screen_info;
      Client *c;
      Window win;
@@ -289,7 +289,7 @@ diff --git a/src/events.c b/src/events.c
 diff --git a/src/stacking.c b/src/stacking.c
 --- a/src/stacking.c
 +++ b/src/stacking.c
-@@ -43,13 +43,14 @@ clientApplyStackList (ScreenInfo *screen_info)
+@@ -43,12 +43,13 @@ clientApplyStackList (ScreenInfo *screen_info)
      Window *xwinstack;
      guint nwindows;
      gint i;
