@@ -1,0 +1,38 @@
+name: Fold external resize patches
+
+on:
+  push:
+    branches:
+      - external-resize-handles-4.20
+    paths:
+      - .github/workflows/fold-external-resize-patches.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fold:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: external-resize-handles-4.20
+
+      - name: Fold tested patches into source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply external-top-corner-resize.patch
+          git apply external-top-edge-resize.patch
+          rm external-top-corner-resize.patch external-top-edge-resize.patch
+
+      - name: Commit folded source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "client: add external resize handles"
+          git push origin HEAD:external-resize-handles-4.20
