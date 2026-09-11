@@ -897,15 +897,25 @@ handleButtonPress (DisplayInfo *display_info, XfwmEventButton *event)
     ScreenInfo *screen_info;
     Client *c;
     Window win;
-    guint state, part;
+    guint state;
+    int part;
     gboolean replay;
 
     TRACE ("entering");
 
     replay = FALSE;
     c = myDisplayGetClientFromWindow (display_info, event->meta.window,
-                                      SEARCH_FRAME | SEARCH_WINDOW);
+                                      SEARCH_RESIZE_HANDLE);
     if (c)
+    {
+        part = clientGetExternalResizeHandle (c, event->meta.window);
+        if (part != NO_HANDLE)
+        {
+            edgeButton (c, part, event);
+        }
+    }
+    else if ((c = myDisplayGetClientFromWindow (display_info, event->meta.window,
+                                                 SEARCH_FRAME | SEARCH_WINDOW)))
     {
         state = event->state & MODIFIER_MASK;
         win = event->subwindow;
