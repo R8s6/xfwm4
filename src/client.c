@@ -698,7 +698,6 @@ clientCanUseExternalResizeHandles (Client *c)
            !FLAG_TEST (c->flags,
                        CLIENT_FLAG_FULLSCREEN |
                        CLIENT_FLAG_MAXIMIZED |
-                       CLIENT_FLAG_SHADED |
                        CLIENT_FLAG_HAS_FRAME_EXTENTS) &&
            (c->tile_mode == TILE_NONE);
 }
@@ -719,6 +718,18 @@ clientUpdateExternalResizeHandles (Client *c)
     y = frameY (c);
     width = frameWidth (c);
     height = frameHeight (c);
+
+    if (FLAG_TEST (c->flags, CLIENT_FLAG_SHADED))
+    {
+        clientHideExternalResizeHandles (c);
+        xfwmWindowShow (&c->external_resize[EXTERNAL_RESIZE_SIDE_LEFT],
+                        x - EXTERNAL_RESIZE_MARGIN, y,
+                        EXTERNAL_RESIZE_MARGIN, height, FALSE);
+        xfwmWindowShow (&c->external_resize[EXTERNAL_RESIZE_SIDE_RIGHT],
+                        x + width, y,
+                        EXTERNAL_RESIZE_MARGIN, height, FALSE);
+        return;
+    }
 
     horizontal_reach = MIN (EXTERNAL_RESIZE_CORNER_REACH,
                             MAX (1, width / 2));
