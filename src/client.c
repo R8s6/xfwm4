@@ -1403,6 +1403,7 @@ clientGetWMNormalHints (Client *c, gboolean update)
         else if (FLAG_TEST (c->xfwm_flags, XFWM_FLAG_IS_RESIZABLE) != previous_value)
         {
             frameQueueDraw (c, FALSE);
+            clientUpdateExternalResizeHandles (c);
         }
     }
     else
