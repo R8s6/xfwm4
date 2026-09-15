@@ -908,10 +908,20 @@ handleButtonPress (DisplayInfo *display_info, XfwmEventButton *event)
                                       SEARCH_RESIZE_HANDLE);
     if (c)
     {
+        screen_info = c->screen_info;
+        state = event->state & MODIFIER_MASK;
         part = clientGetExternalResizeHandle (c, event->meta.window);
         if (part != NO_HANDLE)
         {
-            edgeButton (c, part, event);
+            if ((event->button == Button1) && (state) &&
+                (state == screen_info->params->easy_click))
+            {
+                button1Action (c, event);
+            }
+            else
+            {
+                edgeButton (c, part, event);
+            }
         }
     }
     else if ((c = myDisplayGetClientFromWindow (display_info, event->meta.window,
