@@ -905,27 +905,8 @@ handleButtonPress (DisplayInfo *display_info, XfwmEventButton *event)
 
     replay = FALSE;
     c = myDisplayGetClientFromWindow (display_info, event->meta.window,
-                                      SEARCH_RESIZE_HANDLE);
+                                      SEARCH_FRAME | SEARCH_WINDOW);
     if (c)
-    {
-        screen_info = c->screen_info;
-        state = event->state & MODIFIER_MASK;
-        part = clientGetExternalResizeHandle (c, event->meta.window);
-        if (part != NO_HANDLE)
-        {
-            if ((event->button == Button1) && (state) &&
-                (state == screen_info->params->easy_click))
-            {
-                button1Action (c, event);
-            }
-            else
-            {
-                edgeButton (c, part, event);
-            }
-        }
-    }
-    else if ((c = myDisplayGetClientFromWindow (display_info, event->meta.window,
-                                                 SEARCH_FRAME | SEARCH_WINDOW)))
     {
         state = event->state & MODIFIER_MASK;
         win = event->subwindow;
@@ -1068,6 +1049,22 @@ handleButtonPress (DisplayInfo *display_info, XfwmEventButton *event)
                     clientRaise (c, None);
                 }
             }
+        }
+    }
+    else if ((c = myDisplayGetClientFromWindow (display_info, event->meta.window,
+                                               SEARCH_RESIZE_HANDLE)))
+    {
+        screen_info = c->screen_info;
+        state = event->state & MODIFIER_MASK;
+        if ((event->button == Button1) && (state) &&
+            (state == screen_info->params->easy_click))
+        {
+            button1Action (c, event);
+        }
+        else
+        {
+            part = clientGetExternalResizeHandle (c, event->meta.window);
+            edgeButton (c, part, event);
         }
     }
     else
