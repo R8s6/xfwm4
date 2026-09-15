@@ -721,7 +721,17 @@ clientUpdateExternalResizeHandles (Client *c)
 
     if (FLAG_TEST (c->flags, CLIENT_FLAG_SHADED))
     {
-        clientHideExternalResizeHandles (c);
+        int i;
+
+        for (i = 0; i < EXTERNAL_RESIZE_HANDLE_COUNT; i++)
+        {
+            if ((i != EXTERNAL_RESIZE_SIDE_LEFT) &&
+                (i != EXTERNAL_RESIZE_SIDE_RIGHT))
+            {
+                xfwmWindowHide (&c->external_resize[i]);
+            }
+        }
+
         xfwmWindowShow (&c->external_resize[EXTERNAL_RESIZE_SIDE_LEFT],
                         x - EXTERNAL_RESIZE_MARGIN, y,
                         EXTERNAL_RESIZE_MARGIN, height, FALSE);
