@@ -151,6 +151,8 @@ xfwmWindowCreateInputOnly (ScreenInfo *screen_info, Window parent,
     g_return_if_fail (screen_info != NULL);
     g_return_if_fail (win != NULL);
 
+    xfwmWindowInit (win);
+
     attributes.event_mask = eventmask;
     attributes.override_redirect = TRUE;
     valuemask = CWOverrideRedirect;
@@ -166,12 +168,7 @@ xfwmWindowCreateInputOnly (ScreenInfo *screen_info, Window parent,
 
     TRACE ("new input-only XID (0x%lx)", win->window);
 
-    win->map = FALSE;
     win->screen_info = screen_info;
-    win->x = 0;
-    win->y = 0;
-    win->width = 1;
-    win->height = 1;
     xfwmWindowSetVisual (win, NULL, 0);
     xfwmWindowSetCursor (win, cursor);
 #ifdef HAVE_XI2
