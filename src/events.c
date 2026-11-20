@@ -887,6 +887,39 @@ rootScrollButton (DisplayInfo *display_info, XfwmEventButton *event)
 }
 
 
+static void
+setResizeHandleInputAtPoint (ScreenInfo *screen_info, const XfwmEventButton *event, gboolean enabled)
+{
+    Display *dpy = myScreenGetXDisplay (screen_info);
+    gboolean shape_input = myDisplayHaveShapeInput (screen_info->display_info);
+
+    for (GList *l = screen_info->windows_stack; l; l = l->next)
+    {
+        Client *c = l->data;
+        for (int i = 0; i < EXTERNAL_RESIZE_HANDLE_COUNT; i++)
+        {
+            xfwmWindow *win = &c->external_resize[i];
+            if (!win->map || event->x_root < win->x || event->x_root >= win->x + win->width ||
+                event->y_root < win->y || event->y_root >= win->y + win->height)
+            {
+                continue;
+            }
+            if (!shape_input)
+            {
+                XMoveWindow (dpy, win->window, enabled ? win->x : -win->width, enabled ? win->y : -win->height);
+            }
+            else if (enabled)
+            {
+                XShapeCombineMask (dpy, win->window, ShapeInput, 0, 0, None, ShapeSet);
+            }
+            else
+            {
+                XShapeCombineRectangles (dpy, win->window, ShapeInput, 0, 0, NULL, 0, ShapeSet, Unsorted);
+            }
+        }
+    }
+}
+
 static eventFilterStatus
 handleButtonPress (DisplayInfo *display_info, XfwmEventButton *event)
 {
@@ -1051,6 +1084,14 @@ handleButtonPress (DisplayInfo *display_info, XfwmEventButton *event)
                                                SEARCH_RESIZE_HANDLE)))
     {
         screen_info = c->screen_info;
+        if ((event->button == Button4) || (event->button == Button5))
+        {
+            /* Keep the grab window mapped, but let X find the target behind all overlapping handles. */
+            setResizeHandleInputAtPoint (screen_info, event, FALSE);
+            XAllowEvents (display_info->dpy, ReplayPointer, event->time);
+            setResizeHandleInputAtPoint (screen_info, event, TRUE);
+            return EVENT_FILTER_REMOVE;
+        }
         state = event->state & MODIFIER_MASK;
         if ((event->button == Button1) && (state) &&
             (state == screen_info->params->easy_click))

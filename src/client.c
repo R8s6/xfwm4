@@ -2105,6 +2105,10 @@ clientFrame (DisplayInfo *display_info, Window w, gboolean recapture)
                                    &c->external_resize[i], POINTER_EVENT_MASK,
                                    myDisplayGetCursorResize (display_info,
                                                              resize_part));
+        grabButton (display_info->devices, display_info->dpy, Button4, AnyModifier,
+                    MYWINDOW_XWINDOW (c->external_resize[i]));
+        grabButton (display_info->devices, display_info->dpy, Button5, AnyModifier,
+                    MYWINDOW_XWINDOW (c->external_resize[i]));
     }
 
     clientAddToList (c);
